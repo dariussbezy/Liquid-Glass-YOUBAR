@@ -7,7 +7,6 @@ import {
   FilterScopes,
   withProps,
 } from "@valenced/modules/finders/filters";
-import { instead as nativeInstead } from "@valenced/patcher";
 import { createPluginStore } from "./settings-store";
 
 type Element = React.ReactElement<any>;
@@ -184,7 +183,8 @@ function elementWithType(
   type: React.ElementType<any>,
   overrides: Record<string, any> = {},
 ) {
-  const props = { ...element.props, ...overrides, key: element.key };
+  const props = { ...element.props, ...overrides };
+  if (element.key !== null) props.key = element.key;
   const ref =
     props.ref ?? Object.getOwnPropertyDescriptor(element, "ref")?.value;
   if (ref !== undefined) props.ref = ref;
@@ -394,6 +394,7 @@ export function decorateDockTree(tree: any): any {
               typeof type.compare === "function" ? type.compare : undefined,
             )
           : GlassYouBar;
+        if (!renderableType(Wrapped)) Wrapped = GlassYouBar;
         wrappers.set(type, Wrapped);
       }
       return elementWithType(node, Wrapped);
@@ -414,50 +415,52 @@ export function DockRoot({ original }: { original: Element }) {
     ? decorateDockTree(original)
     : original;
 }
-export const TargetView = React.forwardRef<any, { original: Element }>(
-  function TargetView({ original }, forwardedRef) {
-    const originalRef =
-      original.props.ref ??
-      Object.getOwnPropertyDescriptor(original, "ref")?.value;
-    const combinedRef = React.useCallback(
-      (value: any) => {
-        for (const ref of new Set([originalRef, forwardedRef])) {
-          if (typeof ref === "function") ref(value);
-          else if (ref) ref.current = value;
-        }
-      },
-      [originalRef, forwardedRef],
-    );
-    const base = forwardedRef
-      ? React.cloneElement(original, { ref: combinedRef })
-      : original;
-    const state = useRuntime();
-    const owner = React.useRef({}).current;
-    const ownId = React.useRef(
-      `dariuss-lgd-content-${++targetSequence}`,
-    ).current;
-    const id =
-      typeof original.props.nativeID === "string" && original.props.nativeID
-        ? original.props.nativeID
-        : ownId;
-    React.useEffect(() => () => setTarget(owner, null), [owner]);
-    if (
-      !state.running ||
-      state.renderFailed ||
-      !renderableType(state.targetRenderer)
-    )
-      return base;
-    return elementWithType(base, state.targetRenderer!, {
-      nativeID: id,
-      collapsable: false,
-      onLayout: (event: any) => {
-        const tag = eventTag(event);
-        if (tag !== null) setTarget(owner, { id, tag });
-        original.props.onLayout?.(event);
-      },
-    });
-  },
-);
+export function TargetView({
+  original,
+  ref: forwardedRef,
+}: {
+  original: Element;
+  ref?: React.Ref<any>;
+}) {
+  const originalRef =
+    original.props.ref ??
+    Object.getOwnPropertyDescriptor(original, "ref")?.value;
+  const combinedRef = React.useCallback(
+    (value: any) => {
+      for (const ref of new Set([originalRef, forwardedRef])) {
+        if (typeof ref === "function") ref(value);
+        else if (ref) ref.current = value;
+      }
+    },
+    [originalRef, forwardedRef],
+  );
+  const base = forwardedRef
+    ? React.cloneElement(original, { ref: combinedRef })
+    : original;
+  const state = useRuntime();
+  const owner = React.useRef({}).current;
+  const ownId = React.useRef(`dariuss-lgd-content-${++targetSequence}`).current;
+  const id =
+    typeof original.props.nativeID === "string" && original.props.nativeID
+      ? original.props.nativeID
+      : ownId;
+  React.useEffect(() => () => setTarget(owner, null), [owner]);
+  if (
+    !state.running ||
+    state.renderFailed ||
+    !renderableType(state.targetRenderer)
+  )
+    return base;
+  return elementWithType(base, state.targetRenderer!, {
+    nativeID: id,
+    collapsable: false,
+    onLayout: (event: any) => {
+      const tag = eventTag(event);
+      if (tag !== null) setTarget(owner, { id, tag });
+      original.props.onLayout?.(event);
+    },
+  });
+}
 export function attachTargetTree(tree: any): any {
   let remaining = 100;
   let inserted = false;
@@ -526,25 +529,43 @@ function observeComponent(
       if (seen.has(target)) return;
       seen.add(target);
       let reported = false;
-      patches.push(
-        nativeInstead(
-          target,
-          key,
-          function (args: any[], original: (...args: any[]) => any) {
-            const result = Reflect.apply(original, this, args);
-            if (!runtime.running || runtime.renderFailed) return result;
-            try {
-              return transform(result);
-            } catch (error) {
-              if (!reported) {
-                reported = true;
-                report(error);
-              }
-              return result;
-            }
-          },
-        ),
-      );
+      const original = target[key];
+      // React must see an ordinary function at the component entry point.
+      // Keep SDK function proxies out of memo.type and forwardRef.render.
+      const wrapped = function (this: unknown, ...args: any[]) {
+        const result = Reflect.apply(original, this, args);
+        if (!active || !runtime.running || runtime.renderFailed) return result;
+        try {
+          return transform(result);
+        } catch (error) {
+          if (!reported) {
+            reported = true;
+            report(error);
+          }
+          return result;
+        }
+      };
+      Object.defineProperty(wrapped, "displayName", {
+        value: `LiquidGlass(${name})`,
+        configurable: true,
+      });
+      try {
+        target[key] = wrapped;
+        if (typeof target[key] !== "function") {
+          target[key] = original;
+          throw new Error(`Liquid Glass: ${name} cannot be safely intercepted`);
+        }
+      } catch (error) {
+        try {
+          report(error);
+        } catch {
+          /* Leave unsupported components unchanged. */
+        }
+        return;
+      }
+      patches.push(() => {
+        if (target[key] === wrapped) target[key] = original;
+      });
     },
     { returnNamespace: true },
   );
@@ -563,7 +584,10 @@ function nativeTargetHost(): React.ElementType<any> | null {
   try {
     if (!(RN.UIManager as any).getViewManagerConfig?.(name)) return null;
     const candidate = RN.requireNativeComponent<any>(name);
-    targetHost = renderableType(candidate) ? candidate : null;
+    targetHost =
+      typeof candidate === "string" || typeof candidate === "function"
+        ? candidate
+        : null;
   } catch (error) {
     // A previous plugin instance may have registered the same built-in view.
     if (

@@ -43,7 +43,7 @@ await run([basename(process.cwd()), "--plugins-dir", ".."]);
 if (process.exitCode) throw new Error("Official Valenced compiler failed");
 const script = await readFile("build/js/index.js", "utf8");
 const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
-const archiveName = `Liquid-Glass-YOUBAR-Valenced-${manifest.version}.zip`;
+const archiveName = `Liquid-Glass-YOUBAR-Valenced-${manifest.version}-recovery3.zip`;
 const archive = zipSync({
   "manifest.json": strToU8(JSON.stringify(manifest, null, 2)),
   "index.js": strToU8(script),

@@ -2,7 +2,7 @@
   "format": 1,
   "id": "dariuss.liquid-glass-youbar",
   "name": "Liquid Glass YOUBAR",
-  "description": "A translucent glass finish for the Discord bottom dock, with optional native blur.",
+  "description": "A glass finish for the Discord bottom dock. Recovery build 3.",
   "author": "dariuss",
   "icon": "SparklesIcon",
   "version": "1.0.0-beta",

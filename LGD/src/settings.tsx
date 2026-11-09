@@ -332,7 +332,7 @@ export default function Settings() {
       <RN.Text
         style={{ color: sub, fontSize: 12, textAlign: "center", marginTop: 26 }}
       >
-        Liquid Glass YOUBAR · 1.0.0-beta
+        Liquid Glass YOUBAR · 1.0.0-beta · Recovery 3
       </RN.Text>
     </RN.ScrollView>
   );

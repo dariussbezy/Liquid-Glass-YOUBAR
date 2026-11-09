@@ -2,7 +2,7 @@
 
 A glass-inspired finish for Discord's bottom dock, built for Valenced on Android.
 
-**Version: 1.0.0-beta** · Targets Discord 352.6 and Valenced Plugin API 1.
+**Version: 1.0.0-beta** · **Recovery build 3** · Targets Discord 352.6 and Valenced Plugin API 1.
 
 ## Installation
 
@@ -13,6 +13,8 @@ https://raw.githubusercontent.com/dariussbezy/Liquid-Glass-YOUBAR/refs/heads/mai
 ```
 
 Restart Discord after installing or enabling the plugin. Open its settings to adjust the finish.
+
+If an earlier build crashes at startup, remove Liquid Glass YOUBAR in Recovery, fully close Discord, then install [Recovery build 3](./LGD/Liquid-Glass-YOUBAR-Valenced-1.0.0-beta-recovery3.zip). Its description says **Recovery build 3** so you can verify which package is installed.
 
 ## Features
 
