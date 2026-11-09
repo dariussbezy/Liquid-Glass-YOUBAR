@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "Liquid Glass YOUBAR",
+  "description": "Glass styling for the Discord bottom dock.",
+  "plugins": {
+    "dariuss.liquid-glass-youbar": {
+      "name": "Liquid Glass YOUBAR",
+      "description": "A translucent glass finish for the Discord bottom dock, with optional native blur.",
+      "author": "dariuss",
+      "icon": "SparklesIcon",
+      "channels": {
+        "beta": "1.0.0-beta"
+      },
+      "versions": {
+        "1.0.0-beta": {
+          "url": "https://raw.githubusercontent.com/dariussbezy/Liquid-Glass-YOUBAR/refs/heads/main/LGD/Liquid-Glass-YOUBAR-Valenced-1.0.0-beta.zip",
+          "sha256": "9128a905ae3e7fecc3e69dcb7ded0cdf8ac2efdb274b23c320267cb614b046c1",
+          "size": 5939,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": ">=352.6 <352.7"
+            }
+          }
+        }
+      }
+    }
+  }
+}
