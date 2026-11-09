@@ -22,6 +22,68 @@ function Icon({ name, color }: { name: string; color: string }) {
     <RN.Text style={{ color, fontSize: 18 }}>●</RN.Text>
   );
 }
+export function CustomSwitch({
+  value,
+  onChange,
+  label,
+  light,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+  light: boolean;
+}) {
+  const position = React.useRef(new RN.Animated.Value(value ? 1 : 0)).current;
+  React.useEffect(() => {
+    const animation = RN.Animated.spring(position, {
+      toValue: value ? 1 : 0,
+      speed: 24,
+      bounciness: 5,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [position, value]);
+  return (
+    <RN.Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      hitSlop={10}
+      style={{
+        width: 52,
+        height: 32,
+        borderRadius: 16,
+        padding: 3,
+        justifyContent: "center",
+        backgroundColor: value ? "#5865F2" : light ? "#B5BAC1" : "#4E5058",
+      }}
+    >
+      <RN.Animated.View
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 13,
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#000000",
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 2,
+          transform: [
+            {
+              translateX: position.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 20],
+              }),
+            },
+          ],
+        }}
+      />
+    </RN.Pressable>
+  );
+}
 export default function Settings() {
   const settings = useSettings();
   const runtime = useRuntime();
@@ -73,12 +135,11 @@ export default function Settings() {
           {detail}
         </RN.Text>
       </RN.View>
-      <RN.Switch
+      <CustomSwitch
         value={!!settings[key]}
-        onValueChange={(value) => set(key, value)}
-        trackColor={{ true: "#5865F2", false: "#4E5058" }}
-        thumbColor="#FFFFFF"
-        accessibilityLabel={title}
+        onChange={(value) => set(key, value)}
+        label={title}
+        light={light}
       />
     </RN.View>
   );
@@ -242,9 +303,15 @@ export default function Settings() {
           marginHorizontal: 6,
         }}
       >
-        {runtime.reduceTransparency
-          ? "Reduce Transparency is enabled. A solid finish is used."
-          : "Unsupported blur falls back to a translucent finish. Subtle uses the lightest effect; Frosted adds more tint and blur."}
+        {!settings.enabled
+          ? "Glass dock is turned off."
+          : runtime.reduceTransparency
+            ? "Reduce Transparency is enabled. A solid finish is used."
+            : runtime.blurActive
+              ? "Backdrop blur is active."
+              : runtime.attached
+                ? "Translucent glass is active. Backdrop blur becomes available when a separate background can be sampled."
+                : "Waiting for the Discord dock."}
       </RN.Text>
       {!runtime.attached ? (
         <RN.Text

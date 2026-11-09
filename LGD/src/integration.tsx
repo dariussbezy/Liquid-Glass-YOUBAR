@@ -15,8 +15,11 @@ type NativeTarget = { id: string; tag: number };
 type Runtime = {
   running: boolean;
   renderer: React.ComponentType<any> | null;
+  targetRenderer: React.ElementType<any> | null;
+  blurDisabled: ((props: Record<string, unknown>) => boolean) | null;
   target: NativeTarget | null;
   attached: boolean;
+  blurActive: boolean;
   reduceTransparency: boolean;
 };
 export const useSettings = createPluginStore("liquid-glass-youbar", {
@@ -26,15 +29,18 @@ export const useSettings = createPluginStore("liquid-glass-youbar", {
   finish: "balanced",
 }).useStore;
 export const finishes = {
-  subtle: { label: "Subtle", blur: 10, opacity: 0.25 },
-  balanced: { label: "Balanced", blur: 16, opacity: 0.42 },
-  frosted: { label: "Frosted", blur: 24, opacity: 0.66 },
+  subtle: { label: "Subtle", blur: 8, opacity: 0.12 },
+  balanced: { label: "Balanced", blur: 16, opacity: 0.22 },
+  frosted: { label: "Frosted", blur: 24, opacity: 0.38 },
 } as const;
 let runtime: Runtime = {
   running: false,
   renderer: null,
+  targetRenderer: null,
+  blurDisabled: null,
   target: null,
   attached: false,
+  blurActive: false,
   reduceTransparency: false,
 };
 const listeners = new Set<() => void>();
@@ -60,7 +66,7 @@ function update(patch: Partial<Runtime>) {
 const cleanups: (() => void)[] = [];
 let generation = 0;
 let targetSequence = 0;
-let wrappers = new WeakMap<Function, React.ComponentType<any>>();
+let wrappers = new WeakMap<object, any>();
 const targets = new Map<object, NativeTarget>();
 function setTarget(owner: object, target: NativeTarget | null) {
   if (target && runtime.running) targets.set(owner, target);
@@ -133,6 +139,7 @@ class BlurBoundary extends React.Component<
   }
   componentDidCatch() {
     /* Retain the translucent finish if blur fails. */
+    update({ blurActive: false });
   }
   render() {
     return this.state.failed ? null : this.props.children;
@@ -147,8 +154,22 @@ export function GlassSurface({ original }: { original: Element }) {
   const finish =
     finishes[settings.finish as keyof typeof finishes] || finishes.balanced;
   const enabled = state.running && settings.enabled;
+  let nativeBlurDisabled = true;
+  try {
+    nativeBlurDisabled =
+      state.blurDisabled?.({
+        android_blurTargetViewNativeId: state.target?.id,
+        android_softwareBlurDisabled: true,
+      }) ?? true;
+  } catch {
+    /* Keep the translucent finish if capability detection fails. */
+  }
   const canTryBlur =
-    enabled && settings.blur && !state.reduceTransparency && !!state.renderer;
+    enabled &&
+    settings.blur &&
+    !state.reduceTransparency &&
+    !!state.renderer &&
+    !nativeBlurDisabled;
   const targetKey =
     tag !== null && state.target
       ? `${generation}:${tag}:${state.target.tag}:${state.target.id}`
@@ -176,11 +197,15 @@ export function GlassSurface({ original }: { original: Element }) {
       active = false;
     };
   }, [canTryBlur, tag, state.target, targetKey]);
-  if (!enabled) return original;
   const blur =
     canTryBlur &&
     (RN.Platform.OS === "ios" ||
       (targetKey !== null && verified === targetKey));
+  React.useEffect(() => {
+    update({ blurActive: !!blur });
+    return () => update({ blurActive: false });
+  }, [blur]);
+  if (!enabled) return original;
   const Renderer = state.renderer;
   const tint = light
     ? `rgba(245,248,255,${state.reduceTransparency ? 1 : finish.opacity})`
@@ -202,8 +227,8 @@ export function GlassSurface({ original }: { original: Element }) {
           borderRadius: 999,
           overflow: "hidden",
           backgroundColor: light
-            ? "rgba(228,234,245,0.60)"
-            : "rgba(27,30,39,0.64)",
+            ? "rgba(228,234,245,0.16)"
+            : "rgba(27,30,39,0.18)",
         },
       ]}
     >
@@ -227,10 +252,10 @@ export function GlassSurface({ original }: { original: Element }) {
           {
             backgroundColor: tint,
             borderRadius: 999,
-            borderWidth: 1,
+            borderWidth: RN.StyleSheet.hairlineWidth,
             borderColor: light
               ? "rgba(255,255,255,0.82)"
-              : "rgba(255,255,255,0.20)",
+              : "rgba(255,255,255,0.48)",
           },
         ]}
       />
@@ -240,10 +265,10 @@ export function GlassSurface({ original }: { original: Element }) {
             style={{
               position: "absolute",
               top: 1,
-              left: "12%",
-              right: "12%",
+              left: "8%",
+              right: "8%",
               height: 1,
-              backgroundColor: "rgba(255,255,255,0.42)",
+              backgroundColor: "rgba(255,255,255,0.70)",
             }}
           />
           <RN.View
@@ -257,7 +282,7 @@ export function GlassSurface({ original }: { original: Element }) {
               borderTopRightRadius: 999,
               backgroundColor: light
                 ? "rgba(255,255,255,0.13)"
-                : "rgba(255,255,255,0.055)",
+                : "rgba(255,255,255,0.08)",
             }}
           />
         </>
@@ -303,19 +328,23 @@ export function decorateDockTree(tree: any): any {
     }
     // The exported themed component contains a non-exported YouBar function.
     // Its wrapper invokes that same function unconditionally, preserving its hooks.
+    const type: any = node.type;
+    const memo = type?.$$typeof === Symbol.for("react.memo");
+    const original = memo ? type.type : type;
     if (
-      componentName(node.type) === "YouBar" &&
-      typeof node.type === "function" &&
-      !(node.type as any).prototype?.isReactComponent
+      componentName(original) === "YouBar" &&
+      typeof original === "function" &&
+      !original.prototype?.isReactComponent
     ) {
-      const original = node.type as (props: any) => Element;
-      let Wrapped = wrappers.get(original);
+      let Wrapped = wrappers.get(type);
       if (!Wrapped) {
-        Wrapped = function GlassYouBar(props: any) {
+        const GlassYouBar = function (props: any) {
           const result = original(props);
           return <DockRoot original={result} />;
         };
-        wrappers.set(original, Wrapped);
+        // Keep the native memo comparator and wrapper metadata intact.
+        Wrapped = memo ? { ...type, type: GlassYouBar } : GlassYouBar;
+        wrappers.set(type, Wrapped);
       }
       return { ...node, type: Wrapped };
     }
@@ -335,26 +364,48 @@ export function DockRoot({ original }: { original: Element }) {
     ? decorateDockTree(original)
     : original;
 }
-export function TargetView({ original }: { original: Element }) {
-  const state = useRuntime();
-  const owner = React.useRef({}).current;
-  const ownId = React.useRef(`dariuss-lgd-content-${++targetSequence}`).current;
-  const id =
-    typeof original.props.nativeID === "string" && original.props.nativeID
-      ? original.props.nativeID
-      : ownId;
-  React.useEffect(() => () => setTarget(owner, null), [owner]);
-  if (!state.running) return original;
-  return React.cloneElement(original, {
-    nativeID: id,
-    collapsable: false,
-    onLayout: (event: any) => {
-      const tag = eventTag(event);
-      if (tag !== null) setTarget(owner, { id, tag });
-      original.props.onLayout?.(event);
-    },
-  });
-}
+export const TargetView = React.forwardRef<any, { original: Element }>(
+  function TargetView({ original }, forwardedRef) {
+    const originalRef =
+      original.props.ref ??
+      Object.getOwnPropertyDescriptor(original, "ref")?.value;
+    const combinedRef = React.useCallback(
+      (value: any) => {
+        for (const ref of new Set([originalRef, forwardedRef])) {
+          if (typeof ref === "function") ref(value);
+          else if (ref) ref.current = value;
+        }
+      },
+      [originalRef, forwardedRef],
+    );
+    const base = forwardedRef
+      ? React.cloneElement(original, { ref: combinedRef })
+      : original;
+    const state = useRuntime();
+    const owner = React.useRef({}).current;
+    const ownId = React.useRef(
+      `dariuss-lgd-content-${++targetSequence}`,
+    ).current;
+    const id =
+      typeof original.props.nativeID === "string" && original.props.nativeID
+        ? original.props.nativeID
+        : ownId;
+    React.useEffect(() => () => setTarget(owner, null), [owner]);
+    if (!state.running || !state.targetRenderer) return base;
+    return React.cloneElement(
+      { ...base, type: state.targetRenderer },
+      {
+        nativeID: id,
+        collapsable: false,
+        onLayout: (event: any) => {
+          const tag = eventTag(event);
+          if (tag !== null) setTarget(owner, { id, tag });
+          original.props.onLayout?.(event);
+        },
+      },
+    );
+  },
+);
 export function attachTargetTree(tree: any): any {
   let remaining = 100;
   let inserted = false;
@@ -451,16 +502,37 @@ function observeComponent(
     for (const unpatch of patches.reverse()) unpatch();
   };
 }
+let targetHost: React.ElementType<any> | null = null;
+function nativeTargetHost(): React.ElementType<any> | null {
+  if (RN.Platform.OS !== "android") return null;
+  if (Number(RN.Platform.Version) < 31) return null;
+  if (targetHost) return targetHost;
+  const name = "DCDVisualEffectViewTarget";
+  try {
+    if (!(RN.UIManager as any).getViewManagerConfig?.(name)) return null;
+    targetHost = RN.requireNativeComponent<any>(name);
+  } catch (error) {
+    // A previous plugin instance may have registered the same built-in view.
+    if (
+      String(error).includes("Tried to register two views with the same name")
+    )
+      targetHost = name as React.ElementType<any>;
+  }
+  return targetHost;
+}
 export function startIntegration(report: (error: unknown) => void) {
   if (runtime.running) return;
   const current = ++generation;
-  update({ running: true });
+  update({ running: true, targetRenderer: nativeTargetHost() });
   cleanups.push(
     getModules(
       withProps("normalizeBlurTheme", "isBlurDisabled"),
       (value: any) => {
         if (runtime.running && generation === current && value.default)
-          update({ renderer: value.default });
+          update({
+            renderer: value.default,
+            blurDisabled: (props) => value.isBlurDisabled(props),
+          });
       },
     ),
   );
@@ -494,7 +566,15 @@ export function startIntegration(report: (error: unknown) => void) {
 }
 export function stopIntegration() {
   generation++;
-  update({ running: false, target: null, renderer: null, attached: false });
+  update({
+    running: false,
+    target: null,
+    renderer: null,
+    targetRenderer: null,
+    blurDisabled: null,
+    attached: false,
+    blurActive: false,
+  });
   for (const cleanup of cleanups.splice(0).reverse()) cleanup();
   targets.clear();
   wrappers = new WeakMap();

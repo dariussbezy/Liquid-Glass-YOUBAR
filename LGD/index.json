@@ -14,8 +14,8 @@
       "versions": {
         "1.0.0-beta": {
           "url": "https://raw.githubusercontent.com/dariussbezy/Liquid-Glass-YOUBAR/refs/heads/main/LGD/Liquid-Glass-YOUBAR-Valenced-1.0.0-beta.zip",
-          "sha256": "9128a905ae3e7fecc3e69dcb7ded0cdf8ac2efdb274b23c320267cb614b046c1",
-          "size": 5939,
+          "sha256": "e2788a3215fb22837ed6fd25b123c0fc3e54b9dc6940352d4fe477ef4f90dacc",
+          "size": 6668,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"

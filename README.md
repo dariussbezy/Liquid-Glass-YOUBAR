@@ -21,6 +21,8 @@ Restart Discord after installing or enabling the plugin. Open its settings to ad
 - **Subtle**, **Balanced** and **Frosted** finish presets.
 - Independent switches for the glass appearance, backdrop blur and highlights.
 - Light and dark theme support, with an appearance preview in settings.
+- Matching animated on/off switches, with the same shape and dimensions as the other plugins.
+- A status label showing whether backdrop blur or the translucent finish is active.
 - Keeps Discord's original buttons, badges, gestures, positioning and navigation.
 - Respects **Reduce Transparency** where the system exposes it.
 - Restores Discord's original background when the glass appearance is disabled.
@@ -29,7 +31,7 @@ Restart Discord after installing or enabling the plugin. Open its settings to ad
 
 The finish combines native blur, translucent tint and static light reflections. Its native rendering and appearance still need confirmation on a real Android device; local checks cover the integration and lifecycle.
 
-On Android, blur requires a separate native view to sample. The plugin checks that this view does not contain the dock itself. If that check fails, native blur is unavailable, or older hardware cannot use the supported blur path, the dock keeps its translucent glass finish. Software blur is disabled to avoid the heavier fallback path.
+On Android 12 and later, blur uses Discord's built-in native blur-target component to sample a separate view. The plugin checks that this view does not contain the dock itself. If that check fails, native blur is unavailable, or older hardware cannot use the supported blur path, the dock keeps its translucent glass finish. Software blur is disabled to avoid the heavier fallback path.
 
 The plugin styles the current **YouBar** dock. Other navigation layouts remain unchanged. The sources use React Native and contain no custom Android binaries; iOS behavior is untested.
 
