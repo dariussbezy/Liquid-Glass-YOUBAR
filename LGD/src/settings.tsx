@@ -305,13 +305,15 @@ export default function Settings() {
       >
         {!settings.enabled
           ? "Glass dock is turned off."
-          : runtime.reduceTransparency
-            ? "Reduce Transparency is enabled. A solid finish is used."
-            : runtime.blurActive
-              ? "Backdrop blur is active."
-              : runtime.attached
-                ? "Translucent glass is active. Backdrop blur becomes available when a separate background can be sampled."
-                : "Waiting for the Discord dock."}
+          : runtime.renderFailed
+            ? "Glass styling was paused after a rendering error. The original dock is restored. Restart Discord after updating the plugin."
+            : runtime.reduceTransparency
+              ? "Reduce Transparency is enabled. A solid finish is used."
+              : runtime.blurActive
+                ? "Backdrop blur is active."
+                : runtime.attached
+                  ? "Translucent glass is active. Backdrop blur becomes available when a separate background can be sampled."
+                  : "Waiting for the Discord dock."}
       </RN.Text>
       {!runtime.attached ? (
         <RN.Text

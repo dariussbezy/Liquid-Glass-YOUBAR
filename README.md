@@ -26,6 +26,7 @@ Restart Discord after installing or enabling the plugin. Open its settings to ad
 - Keeps Discord's original buttons, badges, gestures, positioning and navigation.
 - Respects **Reduce Transparency** where the system exposes it.
 - Restores Discord's original background when the glass appearance is disabled.
+- Restores the original dock automatically if a glass component cannot be rendered.
 
 ## About the effect
 

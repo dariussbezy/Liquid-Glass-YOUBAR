@@ -21,6 +21,7 @@ type Runtime = {
   attached: boolean;
   blurActive: boolean;
   reduceTransparency: boolean;
+  renderFailed: boolean;
 };
 export const useSettings = createPluginStore("liquid-glass-youbar", {
   enabled: true,
@@ -42,6 +43,7 @@ let runtime: Runtime = {
   attached: false,
   blurActive: false,
   reduceTransparency: false,
+  renderFailed: false,
 };
 const listeners = new Set<() => void>();
 const subscribe = (callback: () => void) => {
@@ -145,6 +147,49 @@ class BlurBoundary extends React.Component<
     return this.state.failed ? null : this.props.children;
   }
 }
+let reportRenderError: (error: unknown) => void = () => {};
+export class SafeRender extends React.Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    if (!runtime.running || runtime.renderFailed) return;
+    update({ renderFailed: true, attached: false, blurActive: false });
+    try {
+      reportRenderError(error);
+    } catch {
+      /* Recovery must never depend on error reporting. */
+    }
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+function renderableType(type: any, depth = 0): boolean {
+  if (typeof type === "string" || typeof type === "function") return true;
+  if (!type || depth > 3) return false;
+  if (type.$$typeof === Symbol.for("react.memo"))
+    return renderableType(type.type, depth + 1);
+  return (
+    type.$$typeof === Symbol.for("react.forward_ref") &&
+    typeof type.render === "function"
+  );
+}
+function elementWithType(
+  element: Element,
+  type: React.ElementType<any>,
+  overrides: Record<string, any> = {},
+) {
+  const props = { ...element.props, ...overrides, key: element.key };
+  const ref =
+    props.ref ?? Object.getOwnPropertyDescriptor(element, "ref")?.value;
+  if (ref !== undefined) props.ref = ref;
+  return React.createElement(type, props);
+}
 export function GlassSurface({ original }: { original: Element }) {
   const settings = useSettings();
   const state = useRuntime();
@@ -153,7 +198,7 @@ export function GlassSurface({ original }: { original: Element }) {
   const [verified, setVerified] = React.useState<string | null>(null);
   const finish =
     finishes[settings.finish as keyof typeof finishes] || finishes.balanced;
-  const enabled = state.running && settings.enabled;
+  const enabled = state.running && settings.enabled && !state.renderFailed;
   let nativeBlurDisabled = true;
   try {
     nativeBlurDisabled =
@@ -343,10 +388,15 @@ export function decorateDockTree(tree: any): any {
           return <DockRoot original={result} />;
         };
         // Keep the native memo comparator and wrapper metadata intact.
-        Wrapped = memo ? { ...type, type: GlassYouBar } : GlassYouBar;
+        Wrapped = memo
+          ? React.memo(
+              GlassYouBar,
+              typeof type.compare === "function" ? type.compare : undefined,
+            )
+          : GlassYouBar;
         wrappers.set(type, Wrapped);
       }
-      return { ...node, type: Wrapped };
+      return elementWithType(node, Wrapped);
     }
     if (props.children) {
       const children = visit(props.children, depth + 1);
@@ -360,7 +410,7 @@ export function decorateDockTree(tree: any): any {
 export function DockRoot({ original }: { original: Element }) {
   const state = useRuntime();
   const settings = useSettings();
-  return state.running && settings.enabled
+  return state.running && settings.enabled && !state.renderFailed
     ? decorateDockTree(original)
     : original;
 }
@@ -391,19 +441,21 @@ export const TargetView = React.forwardRef<any, { original: Element }>(
         ? original.props.nativeID
         : ownId;
     React.useEffect(() => () => setTarget(owner, null), [owner]);
-    if (!state.running || !state.targetRenderer) return base;
-    return React.cloneElement(
-      { ...base, type: state.targetRenderer },
-      {
-        nativeID: id,
-        collapsable: false,
-        onLayout: (event: any) => {
-          const tag = eventTag(event);
-          if (tag !== null) setTarget(owner, { id, tag });
-          original.props.onLayout?.(event);
-        },
+    if (
+      !state.running ||
+      state.renderFailed ||
+      !renderableType(state.targetRenderer)
+    )
+      return base;
+    return elementWithType(base, state.targetRenderer!, {
+      nativeID: id,
+      collapsable: false,
+      onLayout: (event: any) => {
+        const tag = eventTag(event);
+        if (tag !== null) setTarget(owner, { id, tag });
+        original.props.onLayout?.(event);
       },
-    );
+    });
   },
 );
 export function attachTargetTree(tree: any): any {
@@ -480,7 +532,7 @@ function observeComponent(
           key,
           function (args: any[], original: (...args: any[]) => any) {
             const result = Reflect.apply(original, this, args);
-            if (!runtime.running) return result;
+            if (!runtime.running || runtime.renderFailed) return result;
             try {
               return transform(result);
             } catch (error) {
@@ -510,7 +562,8 @@ function nativeTargetHost(): React.ElementType<any> | null {
   const name = "DCDVisualEffectViewTarget";
   try {
     if (!(RN.UIManager as any).getViewManagerConfig?.(name)) return null;
-    targetHost = RN.requireNativeComponent<any>(name);
+    const candidate = RN.requireNativeComponent<any>(name);
+    targetHost = renderableType(candidate) ? candidate : null;
   } catch (error) {
     // A previous plugin instance may have registered the same built-in view.
     if (
@@ -523,12 +576,21 @@ function nativeTargetHost(): React.ElementType<any> | null {
 export function startIntegration(report: (error: unknown) => void) {
   if (runtime.running) return;
   const current = ++generation;
-  update({ running: true, targetRenderer: nativeTargetHost() });
+  reportRenderError = report;
+  update({
+    running: true,
+    renderFailed: false,
+    targetRenderer: nativeTargetHost(),
+  });
   cleanups.push(
     getModules(
       withProps("normalizeBlurTheme", "isBlurDisabled"),
       (value: any) => {
-        if (runtime.running && generation === current && value.default)
+        if (
+          runtime.running &&
+          generation === current &&
+          renderableType(value.default)
+        )
           update({
             renderer: value.default,
             blurDisabled: (props) => value.isBlurDisabled(props),
@@ -540,12 +602,24 @@ export function startIntegration(report: (error: unknown) => void) {
     cleanups.push(
       observeComponent(
         name,
-        (original) => <DockRoot original={original} />,
+        (original) => (
+          <SafeRender fallback={original}>
+            <DockRoot original={original} />
+          </SafeRender>
+        ),
         report,
       ),
     );
   cleanups.push(
-    observeComponent("MainTabsNavigatorPanel", attachTargetTree, report),
+    observeComponent(
+      "MainTabsNavigatorPanel",
+      (original) => (
+        <SafeRender fallback={original}>
+          {attachTargetTree(original)}
+        </SafeRender>
+      ),
+      report,
+    ),
   );
   const accessibility = RN.AccessibilityInfo as any;
   accessibility
@@ -574,8 +648,10 @@ export function stopIntegration() {
     blurDisabled: null,
     attached: false,
     blurActive: false,
+    renderFailed: false,
   });
   for (const cleanup of cleanups.splice(0).reverse()) cleanup();
   targets.clear();
   wrappers = new WeakMap();
+  reportRenderError = () => {};
 }
