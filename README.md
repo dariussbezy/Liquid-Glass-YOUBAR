@@ -42,4 +42,10 @@ The plugin styles the current **YouBar** dock. Other navigation layouts remain u
 
 No network requests, analytics, screenshots or polling. Settings stay in Valenced's local plugin storage. The effect adds a small number of views to the dock; native blur can still add rendering work. Choose **Subtle** or turn off **Backdrop blur** for a lighter finish.
 
-Sources and the installable package are in [`LGD`](./LGD). The installed ZIP contains only the script and manifest.
+Sources are in [`plugins/LGD`](./plugins/LGD). The installable package remains in [`LGD`](./LGD). The installed ZIP contains only the script and manifest.
+
+## Repository structure
+
+Sources use the [official Valenced plugin template](https://github.com/Valenced/valenced-plugin-template/tree/9a4f9187137a75d86fe552d0e594889a6e6fd7e5). The implementation is in [`plugins/LGD/js`](plugins/LGD/js), with shared configuration and the official plugin CLI at the repository root. `./gradlew packageAllPlugins` packages the plugin; `npm run publish:local` prepares the pool and both repository indexes. The `LGD/index.json` installation URL remains supported. Artifacts stay on `main` and the beta channel.
+
+Install development dependencies with `bun install --frozen-lockfile` before running the root scripts. The compiler and SDK revisions are pinned in `package.json`.

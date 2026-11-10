@@ -1,0 +1,15 @@
+{
+  "name": "Liquid Glass YOUBAR",
+  "description": "A glass finish for the Discord bottom dock. Recovery build 3.",
+  "channels": {
+    "dariuss.liquid-glass-youbar": {
+      "beta": "1.0.0-beta"
+    }
+  },
+  "distribution": {
+    "source": "plugins/LGD",
+    "directory": "LGD",
+    "archive": "Liquid-Glass-YOUBAR-Valenced-1.0.0-beta-recovery3.zip",
+    "repository": "dariussbezy/Liquid-Glass-YOUBAR"
+  }
+}
