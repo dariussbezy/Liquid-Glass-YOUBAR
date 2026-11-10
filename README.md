@@ -1,5 +1,7 @@
 # Liquid Glass YOUBAR
 
+> **Development moved:** all plugins and themes are now maintained in [Valenced Plugins & Themes](https://github.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes). Use the [single repository URL](https://raw.githubusercontent.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes/main/index.json) for installation and updates. This repository remains available for historical links.
+
 A glass-inspired finish for Discord's bottom dock, built for Valenced on Android.
 
 **Version: 1.0.0-beta** · **Recovery build 3** · Targets Discord 352.6 and Valenced Plugin API 1.
@@ -9,7 +11,7 @@ A glass-inspired finish for Discord's bottom dock, built for Valenced on Android
 In Valenced, open **Plugins → Advanced → Repository URL**, add this repository, then install **Liquid Glass YOUBAR** from the **beta** channel:
 
 ```text
-https://raw.githubusercontent.com/dariussbezy/Liquid-Glass-YOUBAR/refs/heads/main/LGD/index.json
+https://raw.githubusercontent.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes/main/index.json
 ```
 
 Restart Discord after installing or enabling the plugin. Open its settings to adjust the finish.
