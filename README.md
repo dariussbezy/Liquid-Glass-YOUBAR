@@ -1,6 +1,6 @@
 # Liquid Glass YOUBAR
 
-> **Development moved:** all plugins and themes are now maintained in [Valenced Plugins & Themes](https://github.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes). Use the [single repository URL](https://raw.githubusercontent.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes/main/index.json) for installation and updates. This repository remains available for historical links.
+> Development repository for Liquid Glass YOUBAR. Use its beta catalog to test the plugin while it is being stabilized.
 
 A glass-inspired finish for Discord's bottom dock, built for Valenced on Android.
 
@@ -11,12 +11,12 @@ A glass-inspired finish for Discord's bottom dock, built for Valenced on Android
 In Valenced, open **Plugins → Advanced → Repository URL**, add this repository, then install **Liquid Glass YOUBAR** from the **beta** channel:
 
 ```text
-https://raw.githubusercontent.com/dariussbezy/dariussbezy-Valenced-Plugins-Themes/main/index.json
+https://raw.githubusercontent.com/dariussbezy/Liquid-Glass-YOUBAR/main/index.json
 ```
 
 Restart Discord after installing or enabling the plugin. Open its settings to adjust the finish.
 
-If an earlier build crashes at startup, remove Liquid Glass YOUBAR in Recovery, fully close Discord, then install [Recovery build 3](./LGD/Liquid-Glass-YOUBAR-Valenced-1.0.0-beta-recovery3.zip). Its description says **Recovery build 3** so you can verify which package is installed.
+If an earlier build crashes at startup, remove Liquid Glass YOUBAR in Recovery, fully close Discord, then install [Recovery build 3](pool/dariuss.liquid-glass-youbar@1.0.0-beta.zip). Its description says **Recovery build 3** so you can verify which package is installed.
 
 ## Features
 
@@ -44,10 +44,4 @@ The plugin styles the current **YouBar** dock. Other navigation layouts remain u
 
 No network requests, analytics, screenshots or polling. Settings stay in Valenced's local plugin storage. The effect adds a small number of views to the dock; native blur can still add rendering work. Choose **Subtle** or turn off **Backdrop blur** for a lighter finish.
 
-Sources are in [`plugins/LGD`](./plugins/LGD). The installable package remains in [`LGD`](./LGD). The installed ZIP contains only the script and manifest.
-
-## Repository structure
-
-Sources use the [official Valenced plugin template](https://github.com/Valenced/valenced-plugin-template/tree/9a4f9187137a75d86fe552d0e594889a6e6fd7e5). The implementation is in [`plugins/LGD/js`](plugins/LGD/js), with shared configuration and the official plugin CLI at the repository root. `./gradlew packageAllPlugins` packages the plugin; `npm run publish:local` prepares the pool and both repository indexes. The `LGD/index.json` installation URL remains supported. Artifacts stay on `main` and the beta channel.
-
-Install development dependencies with `bun install --frozen-lockfile` before running the root scripts. The compiler and SDK revisions are pinned in `package.json`.
+Sources are in [`js`](plugins/LGD/js). The installable package is in the repository [pool](pool). The installed ZIP contains only the script and manifest.
